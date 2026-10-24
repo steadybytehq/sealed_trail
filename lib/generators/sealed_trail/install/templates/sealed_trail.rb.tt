@@ -1,0 +1,23 @@
+# SealedTrail records an audit trail of create, update and destroy events.
+# Add `has_sealed_trail` to any model you want to track.
+SealedTrail.configure do |config|
+  # Turn all tracking off, e.g. in a one-off data migration.
+  # config.enabled = true
+
+  # Values of these attributes are stored as "[REDACTED]". Strings match the
+  # exact attribute name; Regexps match any part of it. The defaults cover
+  # passwords, tokens, secrets, API/private keys, OTP fields and encrypted_*.
+  # config.redact_attributes += [:ssn, /\Abank_account/]
+
+  # Also redact attributes declared with `encrypts` (default: true).
+  # config.redact_encrypted_attributes = true
+
+  # Attributes never recorded in any model.
+  # config.ignore_attributes = [:updated_at]
+
+  # Controller method that returns the current actor (default: :current_user).
+  # config.actor_method = :current_user
+
+  # Include SealedTrail::Controller in all controllers automatically.
+  # config.auto_include_controller = true
+end

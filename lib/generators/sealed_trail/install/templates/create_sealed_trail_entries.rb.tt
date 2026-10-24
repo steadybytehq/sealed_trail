@@ -1,0 +1,21 @@
+class CreateSealedTrailEntries < ActiveRecord::Migration<%= migration_version %>
+  def change
+    create_table :sealed_trail_entries do |t|
+      t.string :item_type, null: false
+      t.string :item_id, null: false
+      t.string :event, null: false
+      t.<%= json_type %> :object_changes
+      t.<%= json_type %> :metadata
+      t.string :actor_type
+      t.string :actor_id
+      t.string :request_id
+      t.string :remote_ip
+      t.datetime :created_at, null: false
+    end
+
+    add_index :sealed_trail_entries, [:item_type, :item_id, :created_at], name: "index_sealed_trail_entries_on_item"
+    add_index :sealed_trail_entries, [:actor_type, :actor_id, :created_at], name: "index_sealed_trail_entries_on_actor"
+    add_index :sealed_trail_entries, :created_at
+    add_index :sealed_trail_entries, :request_id
+  end
+end
