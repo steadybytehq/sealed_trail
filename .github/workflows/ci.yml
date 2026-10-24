@@ -28,12 +28,6 @@ jobs:
         ruby: ["3.2", "3.3", "3.4", "4.0"]
         rails: ["7_1", "7_2", "8_0", "8_1"]
         db: [sqlite3, postgresql]
-        exclude:
-          # Rails 7.1 and 7.2 predate Ruby 4.0
-          - ruby: "4.0"
-            rails: "7_1"
-          - ruby: "4.0"
-            rails: "7_2"
     services:
       postgres:
         image: postgres:17
