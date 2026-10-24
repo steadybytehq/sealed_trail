@@ -1,0 +1,12 @@
+test:
+<% if ENV["DB"] == "postgresql" %>
+  adapter: postgresql
+  encoding: unicode
+  database: <%= ENV.fetch("PGDATABASE", "sealed_trail_test") %>
+  host: <%= ENV["PGHOST"] %>
+  username: <%= ENV["PGUSER"] %>
+  password: <%= ENV["PGPASSWORD"] %>
+<% else %>
+  adapter: sqlite3
+  database: db/test.sqlite3
+<% end %>
