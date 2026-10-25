@@ -37,6 +37,22 @@ ActiveRecord::Schema.define do
     t.string :pin
     t.string :ssn_last4
     t.text :notes
+    t.string :billing_email
+    t.string :phone
+    t.string :work_phone
+    t.string :mobile
+    t.boolean :email_verified, default: false
+    t.timestamps
+  end
+
+  create_table :customers, force: true do |t|
+    t.string :name
+    t.string :email
+    t.string :phone
+    t.string :card_number
+    t.string :nickname
+    t.string :mobile
+    t.string :api_token
     t.timestamps
   end
 
