@@ -2,6 +2,7 @@
 
 class Invoice < ApplicationRecord
   has_sealed_trail on: %i[create destroy],
+    bulk: false,
     unless: :draft?,
     meta: {
       source: "billing",

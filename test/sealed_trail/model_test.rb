@@ -187,7 +187,7 @@ class ModelTest < ActiveSupport::TestCase
   test "rejects invalid options and double declaration" do
     klass = Class.new(ActiveRecord::Base) { self.table_name = "posts" }
 
-    assert_raises(ArgumentError) { klass.has_sealed_trail(on: [ :touch ]) }
+    assert_raises(ArgumentError) { klass.has_sealed_trail(on: [ :explode ]) }
     assert_raises(ArgumentError) { klass.has_sealed_trail(skip: [ :title ]) }
     assert_raises(ArgumentError) { Post.has_sealed_trail }
   end

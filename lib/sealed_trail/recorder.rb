@@ -1,80 +1,52 @@
 # frozen_string_literal: true
 
 module SealedTrail
-  # Builds and saves one Entry for one model event.
+  # Builds and saves one Entry for one record event.
   class Recorder
-    def initialize(record, event)
+    # +changes+ overrides the changes read from the record (used for
+    # update_columns, touch and delete); +via+ is stored in the metadata.
+    def initialize(record, event, changes: nil, via: nil)
       @record = record
       @event = event.to_sym
       @options = record.class.sealed_trail_options
+      @changes = changes
+      @via = via
     end
 
     # Returns the saved Entry, or nil when nothing was recorded.
     def record
       return unless SealedTrail.tracking?
 
-      changes = tracked_changes
-      return if @event == :update && changes.empty?
+      changes = AttributeFilter.new(@record.class).call(raw_changes)
+      return if %i[update touch].include?(@event) && changes.empty?
 
-      actor_type, actor_id = actor_columns(SealedTrail.actor)
-
-      SealedTrail::Entry.create!(
+      Writer.write(
         item_type: @record.class.polymorphic_name,
-        item_id: @record.id.to_s,
-        event: @event.to_s,
-        object_changes: redact(changes).as_json,
-        metadata: metadata.presence&.as_json,
-        actor_type: actor_type,
-        actor_id: actor_id,
-        request_id: Current.request_id,
-        remote_ip: Current.remote_ip
+        item_id: @record.id,
+        event: @event,
+        object_changes: changes,
+        metadata: metadata
       )
     end
 
     private
 
-    def tracked_changes
-      raw =
-        case @event
-        when :create then @record.attributes.compact.transform_values { |value| [ nil, value ] }
-        when :update then @record.saved_changes
-        when :destroy then @record.attributes.compact.transform_values { |value| [ value, nil ] }
-        end
+    def raw_changes
+      return @changes if @changes
 
-      raw.select { |name, _| tracked_attribute?(name) }
-    end
-
-    def tracked_attribute?(name)
-      return false if @options.only && !@options.only.include?(name)
-      return false if @options.ignore.include?(name)
-
-      !SealedTrail.config.ignore_attributes.map(&:to_s).include?(name)
-    end
-
-    def redact(changes)
-      redactor = Redactor.new(redaction_rules)
-      changes.to_h do |name, (before, after)|
-        if redactor.redact?(name)
-          [ name, [ Redactor.mask(before), Redactor.mask(after) ] ]
-        else
-          [ name, [ before, after ] ]
-        end
+      case @event
+      when :create then @record.attributes.compact.transform_values { |value| [ nil, value ] }
+      when :update then @record.saved_changes
+      when :destroy then @record.attributes.compact.transform_values { |value| [ value, nil ] }
       end
-    end
-
-    def redaction_rules
-      rules = SealedTrail.config.redact_attributes + @options.redact
-      if SealedTrail.config.redact_encrypted_attributes && @record.class.respond_to?(:encrypted_attributes)
-        rules += Array(@record.class.encrypted_attributes).map(&:to_s)
-      end
-      rules
     end
 
     def metadata
       model_meta = @options.meta.to_h do |key, value|
         [ key.to_s, resolve_meta(value) ]
       end
-      (Current.metadata || {}).merge(model_meta)
+      model_meta["via"] = @via if @via
+      model_meta
     end
 
     def resolve_meta(value)
@@ -84,13 +56,40 @@ module SealedTrail
       else value
       end
     end
+  end
 
-    def actor_columns(actor)
-      case actor
-      when nil then [ nil, nil ]
-      when ActiveRecord::Base then [ actor.class.polymorphic_name, actor.id.to_s ]
-      else [ nil, actor.to_s ]
+  # Applies a model's only/ignore and redaction rules to a changes hash of
+  # {"attribute" => [before, after]}.
+  class AttributeFilter
+    def initialize(model)
+      @model = model
+      @options = model.sealed_trail_options
+    end
+
+    def call(changes)
+      redactor = self.redactor
+      changes.each_with_object({}) do |(name, values), result|
+        name = name.to_s
+        next unless tracked?(name)
+
+        result[name] = values.map { |value| redactor.apply(name, value) }
       end
+    end
+
+    def tracked?(name)
+      name = name.to_s
+      return false if @options.only && !@options.only.include?(name)
+      return false if @options.ignore.include?(name)
+
+      !SealedTrail.config.ignore_attributes.map(&:to_s).include?(name)
+    end
+
+    def redactor
+      global = Array(SealedTrail.config.redact_attributes)
+      if SealedTrail.config.redact_encrypted_attributes && @model.respond_to?(:encrypted_attributes)
+        global += Array(@model.encrypted_attributes).map(&:to_s)
+      end
+      Redactor.new(@options.redact, global)
     end
   end
 end
