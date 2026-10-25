@@ -1,0 +1,48 @@
+name: Release
+
+# Manual only: Actions > Release > Run workflow (on main).
+# Publishes to RubyGems.org via Trusted Publishing (OIDC); no API key is stored.
+on:
+  workflow_dispatch:
+
+jobs:
+  release:
+    name: Push gem to RubyGems.org
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write # rake release pushes the version tag if it does not exist yet
+      id-token: write # required for RubyGems trusted publishing
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Install database client libraries
+        run: sudo apt-get update && sudo apt-get install -y libmysqlclient-dev libpq-dev
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      # If the version tag already exists, make sure the gem's contents on this
+      # commit match the tagged commit, so the published gem is what was tagged.
+      - name: Check version tag
+        run: |
+          tag="v$(ruby -r ./lib/sealed_trail/version -e 'print SealedTrail::VERSION')"
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            git diff --quiet "$tag" HEAD -- lib sealed_trail.gemspec README.md CHANGELOG.md LICENSE \
+              || { echo "::error::Gem files differ from existing tag $tag. Bump the version first."; exit 1; }
+            echo "Tag $tag exists and matches; rake release will skip tagging."
+          else
+            echo "Tag $tag does not exist; rake release will create and push it."
+          fi
+
+      - name: Run tests
+        run: bundle exec rake test
+
+      # Runs `bundle exec rake release`: build, skip tag if it exists, gem push via OIDC.
+      - uses: rubygems/release-gem@v1
