@@ -33,14 +33,14 @@ class ContextTest < ActiveSupport::TestCase
       assert_equal @user.id.to_s, last_entry.actor_id
     end
 
-    assert_nil SealedTrail.actor
+    assert_equal "system", SealedTrail.actor
     Post.create!(title: "none")
-    assert_nil last_entry.actor_id
+    assert_equal "system", last_entry.actor_id
   end
 
   test "with_actor restores the previous actor when the block raises" do
     assert_raises(RuntimeError) { SealedTrail.with_actor(@user) { raise "boom" } }
-    assert_nil SealedTrail.actor
+    assert_nil SealedTrail::Current.actor
   end
 
   test "an explicit actor wins over a lazily resolved one" do
@@ -109,14 +109,14 @@ class ContextTest < ActiveSupport::TestCase
 
   test "context is isolated between threads" do
     SealedTrail.with_actor(@user) do
-      seen_in_thread = Thread.new { SealedTrail.actor }.value
+      seen_in_thread = Thread.new { SealedTrail::Current.actor }.value
       assert_nil seen_in_thread
       assert_equal @user, SealedTrail.actor
     end
 
     thread_actor = Thread.new { SealedTrail.with_actor("worker") { SealedTrail.actor } }.value
     assert_equal "worker", thread_actor
-    assert_nil SealedTrail.actor
+    assert_nil SealedTrail::Current.actor
   end
 
   test "context is isolated between fibers when isolation_level is :fiber" do
@@ -124,7 +124,7 @@ class ContextTest < ActiveSupport::TestCase
     ActiveSupport::IsolatedExecutionState.isolation_level = :fiber
 
     SealedTrail.with_actor("outer") do
-      assert_nil Fiber.new { SealedTrail.actor }.resume
+      assert_nil Fiber.new { SealedTrail::Current.actor }.resume
       assert_equal "outer", SealedTrail.actor
     end
   ensure

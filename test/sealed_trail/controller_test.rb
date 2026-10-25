@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "minitest/mock"
 
 class ControllerTest < ActionDispatch::IntegrationTest
   setup { @user = User.create!(name: "Ann") }
@@ -28,10 +29,11 @@ class ControllerTest < ActionDispatch::IntegrationTest
     assert_equal @user, last_entry.actor
   end
 
-  test "records no actor when nobody is signed in, but still the request" do
+  test "records the anonymous label when nobody is signed in, and still the request" do
     post "/posts", params: { title: "Anon" }
 
-    assert_nil last_entry.actor_id
+    assert_nil last_entry.actor_type
+    assert_equal "anonymous", last_entry.actor_id
     assert_not_nil last_entry.request_id
     assert_equal "127.0.0.1", last_entry.remote_ip
   end
@@ -41,6 +43,23 @@ class ControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_equal @user, last_entry.actor
+  end
+
+  test "anonymous_actor can be disabled to fall back to default_actor" do
+    SealedTrail.config.anonymous_actor = nil
+    post "/posts", params: { title: "Anon" }
+
+    assert_equal "system", last_entry.actor_id
+  end
+
+  test "a failed audit write does not break the request in :log mode" do
+    SealedTrail.config.logger = Logger.new(nil)
+    SealedTrail::Entry.stub(:create!, ->(*) { raise ActiveRecord::RecordInvalid }) do
+      post "/posts", params: { title: "Still saved" }
+    end
+
+    assert_response :success
+    assert Post.exists?(title: "Still saved")
   end
 
   test "sealed_trail_actor and sealed_trail_metadata can be overridden" do
@@ -55,11 +74,11 @@ class ControllerTest < ActionDispatch::IntegrationTest
     post "/posts", params: { title: "One" }, headers: { "X-User-Id" => @user.id.to_s, "X-Request-Id" => "req-1" }
     post "/posts", params: { title: "Two" }, headers: { "X-Request-Id" => "req-2" }
 
-    assert_nil last_entry.actor_id
+    assert_equal "anonymous", last_entry.actor_id
     assert_equal "req-2", last_entry.request_id
 
     Post.create!(title: "Console")
     assert_nil last_entry.request_id
-    assert_nil last_entry.actor_id
+    assert_equal "system", last_entry.actor_id
   end
 end

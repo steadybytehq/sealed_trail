@@ -8,7 +8,8 @@ module SealedTrail
   #
   # The actor is resolved lazily by calling #sealed_trail_actor the first time
   # an entry is recorded, so it works with authentication that runs in a later
-  # before_action. Override #sealed_trail_actor to customise it:
+  # before_action. When it returns nil, config.anonymous_actor ("anonymous")
+  # is recorded. Override #sealed_trail_actor to customise it:
   #
   #   def sealed_trail_actor
   #     current_admin || current_user
@@ -40,6 +41,7 @@ module SealedTrail
       current.request_id = request.request_id
       current.remote_ip = request.remote_ip
       current.actor_resolver = -> { sealed_trail_actor }
+      current.context_label = SealedTrail.config.anonymous_actor
       metadata = sealed_trail_metadata
       current.metadata = (current.metadata || {}).merge(metadata.to_h.stringify_keys) if metadata.present?
     end

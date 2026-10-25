@@ -8,15 +8,20 @@ require "sealed_trail/version"
 require "sealed_trail/configuration"
 require "sealed_trail/current"
 require "sealed_trail/redactor"
+require "sealed_trail/writer"
 require "sealed_trail/recorder"
 require "sealed_trail/model"
+require "sealed_trail/bulk"
 require "sealed_trail/controller"
+require "sealed_trail/rake_context"
 
-# SealedTrail records an audit trail of create, update and destroy events on
-# Active Record models: what changed, who changed it, when, and from which
-# request.
+# SealedTrail records an audit trail of changes to Active Record models: what
+# changed, who changed it, when, and from which request.
 module SealedTrail
   REDACTED = "[REDACTED]"
+
+  class Error < StandardError; end
+  class ConfigurationError < Error; end
 
   autoload :Entry, "sealed_trail/entry"
 
@@ -36,6 +41,10 @@ module SealedTrail
     def reset_config!
       @config = Configuration.new
     end
+
+    # Process-wide fallback actor label, set to "console" in rails console and
+    # "rake:<task>" while a rake task runs.
+    attr_accessor :process_actor_label
 
     # True unless tracking is switched off globally (config.enabled = false)
     # or for the current block (SealedTrail.without_tracking).
@@ -70,11 +79,34 @@ module SealedTrail
       Current.set(metadata: merged, &)
     end
 
-    # The actor that will be recorded right now, if any.
+    # The actor that will be recorded right now. In order: the explicit actor
+    # (with_actor / Current.actor), the request's actor, the request or job
+    # label ("anonymous", "job:<JobClass>"), the console/rake label, then
+    # config.default_actor.
     def actor
-      Current.resolved_actor
+      identified = Current.identified_actor
+      return identified unless identified.nil?
+      return Current.context_label if Current.context_label.present?
+      return process_actor_label if config.detect_process_context && process_actor_label.present?
+
+      default = config.default_actor
+      default.respond_to?(:call) ? default.call : default
+    end
+
+    # The HMAC-SHA256 fingerprint stored by the :fingerprint redaction
+    # strategy, e.g. "hmac:3f2a...". Use it to find entries for a value
+    # without storing the value:
+    #
+    #   SealedTrail::Entry.with_fingerprint("jane@example.com")
+    def fingerprint(value)
+      return nil if value.nil?
+
+      digest = OpenSSL::HMAC.hexdigest("SHA256", config.fingerprint_secret, Redactor.stringify(value))
+      "hmac:#{digest}"
     end
   end
 end
 
-require "sealed_trail/railtie" if defined?(Rails::Railtie)
+if defined?(Rails::Railtie)
+  require "sealed_trail/railtie"
+end
