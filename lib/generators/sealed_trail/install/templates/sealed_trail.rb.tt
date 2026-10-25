@@ -1,13 +1,27 @@
-# SealedTrail records an audit trail of create, update and destroy events.
+# SealedTrail records an audit trail of changes to your models.
 # Add `has_sealed_trail` to any model you want to track.
 SealedTrail.configure do |config|
   # Turn all tracking off, e.g. in a one-off data migration.
   # config.enabled = true
 
-  # Values of these attributes are stored as "[REDACTED]". Strings match the
-  # exact attribute name; Regexps match any part of it. The defaults cover
-  # passwords, tokens, secrets, API/private keys, OTP fields and encrypted_*.
-  # config.redact_attributes += [:ssn, /\Abank_account/]
+  # --- Redaction -------------------------------------------------------------
+  # Attributes whose values are never stored in plain text. Strings match the
+  # exact attribute name; Regexps match any part of it; a Hash picks a strategy
+  # per rule. The defaults cover passwords, tokens, secrets, API/private keys,
+  # OTP fields, salts, encrypted_*, email, *_email, phone, *_phone and mobile.
+  # config.redact_attributes += [:ssn, /\Abank_account/, { date_of_birth: :mask }]
+
+  # How redacted values are stored unless a rule says otherwise:
+  #   :redact      => "[REDACTED]"
+  #   :fingerprint => "hmac:<hex>" (HMAC-SHA256; equal values match, see
+  #                   SealedTrail::Entry.with_fingerprint)
+  #   :mask        => "j***@example.com", "******1234"
+  #   or a callable ->(value, attribute_name) { ... }
+  # config.redaction_strategy = :redact
+
+  # Secret for :fingerprint. Defaults to a key derived from secret_key_base;
+  # changing it (or secret_key_base) changes all future fingerprints.
+  # config.fingerprint_secret = Rails.application.credentials.sealed_trail_fingerprint_secret
 
   # Also redact attributes declared with `encrypts` (default: true).
   # config.redact_encrypted_attributes = true
@@ -15,9 +29,43 @@ SealedTrail.configure do |config|
   # Attributes never recorded in any model.
   # config.ignore_attributes = [:updated_at]
 
+  # --- When an audit entry cannot be written ---------------------------------
+  # :log (default) logs the error, instruments "write_failed.sealed_trail" and
+  # lets the user's save succeed. :raise rolls the change back instead.
+  # A callable ->(error, payload) { ... } replaces the default handling.
+  # config.on_failure = :log
+
+  # Extra reporting in :log mode, e.g. to Sentry or Rails.error.
+  # config.error_handler = ->(error, payload) { Rails.error.report(error, context: payload.except(:error)) }
+
+  # --- Who made the change -----------------------------------------------------
   # Controller method that returns the current actor (default: :current_user).
   # config.actor_method = :current_user
 
+  # Recorded in a request when nobody is signed in (default: "anonymous").
+  # config.anonymous_actor = "anonymous"
+
+  # Recorded when nothing else identifies the actor (default: "system").
+  # Rake tasks are labelled "rake:<task>", the console "console", and jobs
+  # "job:<JobClass>" unless they inherited an actor from where they were enqueued.
+  # config.default_actor = "system"
+  # config.detect_process_context = true
+
+  # Carry the actor, request id and metadata into Active Job jobs (default: true).
+  # config.active_job_integration = true
+
   # Include SealedTrail::Controller in all controllers automatically.
   # config.auto_include_controller = true
+
+  # --- Bulk operations ---------------------------------------------------------
+  # Record update_all, delete_all, insert_all, insert_all! and upsert_all on
+  # tracked models as one summary entry each (default: true).
+  # config.track_bulk_operations = true
+
+  # Maximum affected ids stored per bulk entry (default: 1000).
+  # config.bulk_id_limit = 1000
+
+  # WHERE/SET SQL of bulk operations: :masked (string literals replaced with
+  # '?', default), :full or :none.
+  # config.bulk_sql = :masked
 end
