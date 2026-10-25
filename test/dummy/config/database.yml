@@ -6,6 +6,14 @@ test:
   host: <%= ENV["PGHOST"] %>
   username: <%= ENV["PGUSER"] %>
   password: <%= ENV["PGPASSWORD"] %>
+<% elsif %w[mysql2 trilogy].include?(ENV["DB"]) %>
+  adapter: <%= ENV["DB"] %>
+  encoding: utf8mb4
+  database: <%= ENV.fetch("MYSQL_DATABASE", "sealed_trail_test") %>
+  host: <%= ENV.fetch("MYSQL_HOST", "127.0.0.1") %>
+  port: <%= ENV.fetch("MYSQL_PORT", 3306) %>
+  username: <%= ENV.fetch("MYSQL_USER", "root") %>
+  password: <%= ENV["MYSQL_PASSWORD"] %>
 <% else %>
   adapter: sqlite3
   database: db/test.sqlite3

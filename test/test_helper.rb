@@ -33,7 +33,7 @@ module SealedTrailTestSchema
   end
 end
 
-if ENV["DB"] == "postgresql"
+if %w[postgresql mysql2 trilogy].include?(ENV["DB"])
   begin
     ActiveRecord::Base.connection.verify!
   rescue ActiveRecord::NoDatabaseError
