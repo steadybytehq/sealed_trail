@@ -39,10 +39,16 @@ patient.audit_entries.last
 
 ## Installation
 
-Add the gem and run the installer:
+Add the gem to your Gemfile (or run `bundle add sealed_trail`):
+
+```ruby
+gem "sealed_trail"
+```
+
+Then install it and run the installer:
 
 ```sh
-bundle add sealed_trail
+bundle install
 bin/rails generate sealed_trail:install
 bin/rails db:migrate
 ```
@@ -411,7 +417,8 @@ planned to add:
 - **retention policies** that keep entries for a set period and then delete them
 - **auditor-ready reports** to support evidence for SOC 2, HIPAA, GDPR and India's DPDP rules
 
-Details and early access: <https://steadybytehq.github.io/sealedtrail/>
+Pro is sold as an annual licence, with a founding price for early customers.
+Details, pricing and early access: <https://steadybytehq.github.io/sealedtrail/>
 
 ## Limitations
 

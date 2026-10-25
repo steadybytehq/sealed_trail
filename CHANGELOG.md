@@ -6,7 +6,7 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
-## [0.1.0] - Unreleased
+## [0.1.0] - 2026-10-25
 
 ### Added
 
@@ -52,3 +52,6 @@ All notable changes to this project are documented here. The format follows
   initializer.
 - Support for Rails 7.1, 7.2, 8.0 and 8.1 on Ruby 3.2+, with PostgreSQL,
   MySQL 8+ (`mysql2` and `trilogy`) and SQLite.
+
+[Unreleased]: https://github.com/steadybytehq/sealed_trail/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/steadybytehq/sealed_trail/releases/tag/v0.1.0
