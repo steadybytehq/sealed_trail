@@ -420,6 +420,8 @@ planned to add:
 Pro is sold as an annual licence, with a founding price for early customers.
 Details, pricing and early access: <https://steadybytehq.github.io/sealedtrail/>
 
+Why change tracking alone isn't enough in an audit: [Your Rails audit log has 4 blind spots. Auditors know all of them.](https://dev.to/steadybyte/your-rails-audit-log-answers-what-changed-auditors-ask-four-more-questions-3n4o)
+
 ## Limitations
 
 - **Hand-written SQL is not captured.** Anything run with
